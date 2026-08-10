@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    :root { --brass: #e3a84c; --bg: #14161a; --fg: #e8e6e3; --muted: #9aa0a6; }
+    body {
+      margin: 0; width: 290px; background: var(--bg); color: var(--fg);
+      font: 13px/1.5 -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .wrap { padding: 14px; }
+    h1 { margin: 0 0 2px; font-size: 13px; font-weight: 600; color: var(--brass); }
+    .sub { color: var(--muted); font-size: 12px; margin-bottom: 11px; }
+    button {
+      width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; cursor: pointer;
+      background: var(--brass); color: var(--bg); font: inherit; font-weight: 600;
+    }
+    button:disabled { opacity: .55; cursor: default; }
+    #status { margin-top: 10px; font-size: 12px; color: var(--muted); }
+    .ok { color: #7bc47f; }
+    .warn { color: #c9a227; }
+    .err { color: #e08a5f; }
+    a { color: var(--brass); }
+    .foot {
+      border-top: 1px solid #ffffff14; padding: 8px 14px;
+      font-size: 11px; color: var(--muted); display: flex; justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 id="title">MediaShelf clipper</h1>
+    <div class="sub" id="sub">Checking this page…</div>
+    <button id="send" disabled>Send my list</button>
+    <div id="status"></div>
+  </div>
+  <div class="foot">
+    <span id="target">—</span>
+    <span>
+      <a href="#" id="opts">options</a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/sponsors/ghltshubh" target="_blank" rel="noreferrer"
+         title="Support MediaShelf">♥ support</a>
+    </span>
+  </div>
+  <script src="sites.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
