@@ -12,9 +12,11 @@ runs in your browser, as you, on a page you opened. That split is deliberate —
 
 ## Install
 
-1. Download or clone this repo.
-2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, pick this
-   folder.
+1. Download `mediashelf-clipper.zip` from
+   [Releases](https://github.com/ghltshubh/mediashelf-clipper/releases) and unzip it. (Cloning
+   this repo works too — same files.)
+2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and pick the
+   unzipped `mediashelf-clipper` folder.
 3. Click the toolbar icon. If your MediaShelf isn't at `http://127.0.0.1:8000`, hit **change**
    at the bottom of the dropdown and enter its address (e.g. `http://192.168.1.105:8010`).
    Saving asks Chrome for permission to reach it.
