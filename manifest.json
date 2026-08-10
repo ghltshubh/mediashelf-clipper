@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "MediaShelf clipper",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "On your streaming service's own My List page, click the toolbar icon to send those titles to your MediaShelf.",
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": ["storage", "activeTab", "scripting", "tabs"],
   "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
   "optional_host_permissions": ["http://*/*", "https://*/*"],
   "icons": {

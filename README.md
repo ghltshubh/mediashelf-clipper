@@ -22,13 +22,22 @@ runs in your browser, as you, on a page you opened. That split is deliberate —
 ## Use
 
 Go to your list on the service's own site — `netflix.com/browse/my-list`, `hulu.com/my-stuff`,
-and so on. A small panel appears in the corner. When the list has finished loading, click
-**Send my list to MediaShelf**. The panel scrolls the page to force lazy rows to render, reads
-the titles, sends them, and reports what MediaShelf did with them: added, already there, and
-anything it couldn't match against TMDB.
+and so on. The toolbar icon gets a brass dot to say it recognises the page. Click it, and when
+your list has finished loading press **Send my list**. It scrolls the page so lazy rows render,
+reads the titles, sends them, and reports what MediaShelf did: added, already there, and anything
+it couldn't match against TMDB.
 
-Nothing happens until you click. There is no background fetching, no schedule, and no
-credentials stored anywhere — it reads the page your browser already rendered for you.
+A long list takes a few minutes to import, because MediaShelf looks up every new title. You can
+close the popup and keep browsing; the icon shows `…` while it works and `✓` when it's done, and
+reopening the popup shows the result.
+
+Nothing is read until you click. There is no background fetching, no schedule, and no credentials
+stored anywhere — it reads the page your browser already rendered for you, when you ask it to.
+
+**Syncing is a click, every time.** That's the design, not a limitation: the alternative is an
+extension that opens your streaming account on a timer while you're away, which is the robot
+behaviour this deliberately isn't. You're on the page anyway when you add something; the dot is
+there to remind you.
 
 ### Each clip replaces that service's list
 
@@ -72,3 +81,14 @@ Settings → Plugins, which takes the official data export most services provide
 ## License
 
 MIT.
+
+## Permissions, and why each one
+
+| Permission | Why |
+|---|---|
+| `activeTab` + `scripting` | Read the list off the page — granted for one tab, only when you click the icon. |
+| `tabs` | See the URL of tabs you switch to, so the icon can show its "clip available" dot. Chrome words this as *"read your browsing history"*; the extension never stores or sends any of it. Remove `"tabs"` from `manifest.json` if you'd rather not grant it — everything still works, minus the dot. |
+| `storage` | Remember your MediaShelf address and the last import's outcome. |
+| Host access to your MediaShelf | Send the titles there. Localhost is built in; any other address is requested when you save it in options. |
+
+There is no host access to the streaming sites themselves.

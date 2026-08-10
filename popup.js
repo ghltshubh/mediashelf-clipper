@@ -108,7 +108,7 @@ function render(result) {
     $("status").textContent = `Importing ${titles.length} titles… this can take a few minutes.`;
     // Fire and forget: the worker owns the request and stores the outcome, so
     // closing this popup mid-import is safe.
-    chrome.runtime.sendMessage({ type: "import", key: site.key, titles });
+    chrome.runtime.sendMessage({ type: "import", key: site.key, titles, tabId: tab.id });
   };
 
   // Live updates while the popup happens to be open.
