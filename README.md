@@ -54,7 +54,7 @@ would look like a shorter list.
 
 ### When a service redesigns
 
-If the panel says it found no titles while the list is plainly visible, that service's markup has
+If the popup says it found no titles while the list is plainly visible, that service's markup has
 changed. Each service is a handful of CSS selectors in `sites.js`, tried in order — a small edit.
 Issues and PRs welcome.
 
@@ -78,10 +78,6 @@ their terms and decide for yourself. If you'd rather not, MediaShelf has two rou
 extension at all: the **+ Want to watch** button on any title page, and the paste/upload box in
 Settings → Plugins, which takes the official data export most services provide on request.
 
-## License
-
-MIT.
-
 ## Permissions, and why each one
 
 | Permission | Why |
@@ -92,3 +88,7 @@ MIT.
 | Host access to your MediaShelf | Send the titles there. Localhost is built in; any other address is requested when you save it in options. |
 
 There is no host access to the streaming sites themselves.
+
+## License
+
+MIT.
