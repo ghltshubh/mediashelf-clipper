@@ -12,14 +12,26 @@ runs in your browser, as you, on a page you opened. That split is deliberate —
 
 ## Install
 
-1. Download `mediashelf-clipper.zip` from
-   [Releases](https://github.com/ghltshubh/mediashelf-clipper/releases) and unzip it. (Cloning
-   this repo works too — same files.)
-2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and pick the
-   unzipped `mediashelf-clipper` folder.
-3. Click the toolbar icon. If your MediaShelf isn't at `http://127.0.0.1:8000`, hit **change**
-   at the bottom of the dropdown and enter its address (e.g. `http://192.168.1.105:8010`).
-   Saving asks Chrome for permission to reach it.
+Grab the zip for your browser from
+[Releases](https://github.com/ghltshubh/mediashelf-clipper/releases) and unzip it.
+
+**Chrome / Edge / Brave** — `mediashelf-clipper-chrome.zip`
+
+1. Open `chrome://extensions`, turn on **Developer mode**.
+2. **Load unpacked**, pick the unzipped `mediashelf-clipper` folder.
+
+**Firefox** — `mediashelf-clipper-firefox.zip`
+
+1. Open `about:debugging#/runtime/this-firefox`.
+2. **Load Temporary Add-on**, pick `manifest.json` inside the unzipped folder. (Temporary add-ons
+   are removed when Firefox restarts; a signed build is on the list.)
+
+Then click the toolbar icon. If your MediaShelf isn't at `http://127.0.0.1:8000`, hit **change** at
+the bottom of the dropdown and enter its address (e.g. `http://192.168.1.105:8010`). Saving asks
+the browser for permission to reach it.
+
+The extension checks once a day whether a newer release exists and shows an **update** link in
+the dropdown when there is one — it sends nothing but the request itself.
 
 ## Use
 
@@ -87,6 +99,7 @@ Settings → Plugins, which takes the official data export most services provide
 | `activeTab` + `scripting` | Read the list off the page — granted for one tab, only when you click the icon. |
 | `tabs` | See the URL of tabs you switch to, so the icon can show its "clip available" dot. Chrome words this as *"read your browsing history"*; the extension never stores or sends any of it. Remove `"tabs"` from `manifest.json` if you'd rather not grant it — everything still works, minus the dot. |
 | `storage` | Remember your MediaShelf address and the last import's outcome. |
+| `api.github.com` | Read the latest release number, once a day, to tell you an update exists. Nothing is sent. |
 | Host access to your MediaShelf | Send the titles there. Localhost is built in; any other address is requested when you save it in the dropdown. |
 
 There is no host access to the streaming sites themselves.

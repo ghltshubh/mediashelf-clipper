@@ -5,6 +5,11 @@
 // grants activeTab, the scrape runs once in that tab, and the import runs in
 // the background worker so closing this popup can't kill it.
 
+
+// Firefox exposes the promise-based API as `browser`; its `chrome` alias is
+// callback-style, so awaiting it there returns undefined. Chrome has no
+// `browser`, and its `chrome` is promise-based in MV3. One name for both.
+const ext = globalThis.browser?.runtime ? globalThis.browser : globalThis.chrome;
 const $ = (id) => document.getElementById(id);
 const DEFAULT_URL = "http://127.0.0.1:8000";
 
@@ -57,7 +62,7 @@ function render(result) {
 }
 
 async function currentUrl() {
-  const { mediashelfUrl } = await chrome.storage.sync.get("mediashelfUrl");
+  const { mediashelfUrl } = await ext.storage.sync.get("mediashelfUrl");
   return mediashelfUrl || DEFAULT_URL;
 }
 
@@ -88,10 +93,10 @@ function showTarget(url) {
     }
     // Store first: requesting a permission can dismiss this popup, and the
     // address shouldn't be lost if that happens.
-    await chrome.storage.sync.set({ mediashelfUrl: raw });
+    await ext.storage.sync.set({ mediashelfUrl: raw });
     showTarget(raw);
     try {
-      const granted = await chrome.permissions.request({ origins: [origin + "/*"] });
+      const granted = await ext.permissions.request({ origins: [origin + "/*"] });
       $("urlnote").innerHTML = granted
         ? `<span class="ok">Saved. Imports go to ${raw}.</span>`
         : `<span class="warn">Saved, but Chrome needs permission to reach it — press Save again and allow.</span>`;
@@ -101,14 +106,14 @@ function showTarget(url) {
   };
   $("url").onkeydown = (e) => { if (e.key === "Enter") $("saveurl").click(); };
 
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const [tab] = await ext.tabs.query({ active: true, currentWindow: true });
   let site = null;
   try {
     site = tab?.url ? siteForLocation(new URL(tab.url)) : null;
   } catch { /* chrome:// and friends aren't URLs we can read */ }
 
   // A run already in flight (popup closed and reopened), or the last outcome.
-  const { job } = await chrome.storage.local.get("job");
+  const { job } = await ext.storage.local.get("job");
   if (job?.running) {
     $("send").disabled = true;
     $("status").textContent = `Importing ${job.count} titles… this can take a few minutes.`;
@@ -132,7 +137,7 @@ function showTarget(url) {
     $("status").textContent = "Reading the page…";
     let titles = [];
     try {
-      const [res] = await chrome.scripting.executeScript({
+      const [res] = await ext.scripting.executeScript({
         target: { tabId: tab.id },
         func: scrapeInPage,
         args: [site.selectors, [...NOISE]],
@@ -153,10 +158,24 @@ function showTarget(url) {
     $("status").textContent = `Importing ${titles.length} titles… this can take a few minutes.`;
     // Fire and forget: the worker owns the request and stores the outcome, so
     // closing this popup mid-import is safe.
-    chrome.runtime.sendMessage({ type: "import", key: site.key, titles, tabId: tab.id });
+    ext.runtime.sendMessage({ type: "import", key: site.key, titles, tabId: tab.id });
   };
 
-  chrome.storage.onChanged.addListener((changes, area) => {
+  // Nothing updates a load-unpacked extension on its own, and a stale build
+  // looks like a broken one when a service redesigns. Ask once a day.
+  ext.runtime.sendMessage({ type: "checkUpdate" }, (upd) => {
+    if (!upd) return;
+    const link = $("update");
+    link.style.display = "";
+    link.title = `${upd.current} installed · ${upd.latest} available`;
+    link.onclick = (e) => {
+      e.preventDefault();
+      ext.tabs.create({ url: "https://github.com/ghltshubh/mediashelf-clipper/releases/latest" });
+    };
+    $("updatesep").style.display = "";
+  });
+
+  ext.storage.onChanged.addListener((changes, area) => {
     if (area !== "local" || !changes.job) return;
     const j = changes.job.newValue;
     if (j?.running) return;
