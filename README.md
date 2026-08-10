@@ -15,9 +15,9 @@ runs in your browser, as you, on a page you opened. That split is deliberate —
 1. Download or clone this repo.
 2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, pick this
    folder.
-3. Open the extension's **options** and set your MediaShelf address if it isn't
-   `http://127.0.0.1:8000` (e.g. `http://192.168.1.105:8010`). Saving asks Chrome for permission
-   to reach that address.
+3. Click the toolbar icon. If your MediaShelf isn't at `http://127.0.0.1:8000`, hit **change**
+   at the bottom of the dropdown and enter its address (e.g. `http://192.168.1.105:8010`).
+   Saving asks Chrome for permission to reach it.
 
 ## Use
 
@@ -85,7 +85,7 @@ Settings → Plugins, which takes the official data export most services provide
 | `activeTab` + `scripting` | Read the list off the page — granted for one tab, only when you click the icon. |
 | `tabs` | See the URL of tabs you switch to, so the icon can show its "clip available" dot. Chrome words this as *"read your browsing history"*; the extension never stores or sends any of it. Remove `"tabs"` from `manifest.json` if you'd rather not grant it — everything still works, minus the dot. |
 | `storage` | Remember your MediaShelf address and the last import's outcome. |
-| Host access to your MediaShelf | Send the titles there. Localhost is built in; any other address is requested when you save it in options. |
+| Host access to your MediaShelf | Send the titles there. Localhost is built in; any other address is requested when you save it in the dropdown. |
 
 There is no host access to the streaming sites themselves.
 
