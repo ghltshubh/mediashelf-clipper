@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "MediaShelf clipper",
+  "version": "1.0.0",
+  "description": "On your streaming service's own My List page, sends the titles you're looking at to your MediaShelf. Runs only on pages you open, and only when you click.",
+  "permissions": ["storage"],
+  "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "options_ui": { "page": "options.html", "open_in_tab": false },
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "js": ["sites.js", "content.js"],
+      "run_at": "document_idle",
+      "matches": [
+        "*://*.netflix.com/browse/my-list*",
+        "*://*.primevideo.com/*watchlist*",
+        "*://*.disneyplus.com/*watchlist*",
+        "*://*.hulu.com/my-stuff*",
+        "*://play.max.com/mylist*",
+        "*://*.paramountplus.com/account/watchlist/*",
+        "*://*.peacocktv.com/watch/my-stuff*",
+        "*://tubitv.com/my-stuff*",
+        "*://*.crunchyroll.com/watchlist*",
+        "*://tv.apple.com/*/room/up-next*"
+      ]
+    }
+  ]
+}
