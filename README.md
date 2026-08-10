@@ -104,6 +104,11 @@ Settings → Plugins, which takes the official data export most services provide
 
 There is no host access to the streaming sites themselves.
 
+## Privacy
+
+No server, no analytics, no telemetry. Titles go to the MediaShelf address you configure and
+nowhere else. Full policy: [PRIVACY.md](PRIVACY.md).
+
 ## License
 
 MIT.
