@@ -1,0 +1,68 @@
+name: Build & release
+
+# Push a tag and both browser builds are packaged and attached to the release,
+# so a release is never a zip somebody made on their laptop.
+on:
+  push:
+    tags: ["v*.*.*"]
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax-check every script
+        run: for f in background.js popup.js sites.js; do node --check "$f"; done
+      - name: Manifests must be valid JSON, same version, right background type
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          chrome = json.load(open("manifest.json"))
+          firefox = json.load(open("manifest.firefox.json"))
+          errs = []
+          if chrome["version"] != firefox["version"]:
+              errs.append(f'version mismatch: {chrome["version"]} vs {firefox["version"]}')
+          if "service_worker" not in chrome["background"]:
+              errs.append("chrome manifest needs background.service_worker")
+          if "scripts" not in firefox["background"]:
+              errs.append("firefox manifest needs background.scripts")
+          if not firefox.get("browser_specific_settings", {}).get("gecko", {}).get("id"):
+              errs.append("firefox manifest needs a gecko id")
+          # Every file the manifests name must actually be in the repo.
+          import pathlib
+          for m, name in ((chrome, "chrome"), (firefox, "firefox")):
+              refs = list(m.get("icons", {}).values())
+              refs += list(m["action"].get("default_icon", {}).values())
+              refs.append(m["action"]["default_popup"])
+              refs += m["background"].get("scripts", [m["background"].get("service_worker")])
+              for r in refs:
+                  if r and not pathlib.Path(r).exists():
+                      errs.append(f"{name} manifest references missing file: {r}")
+          if errs:
+              sys.exit("\n".join(errs))
+          print(f'manifests OK, version {chrome["version"]}')
+          PY
+
+  release:
+    needs: check
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release and upload the zips
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package both builds
+        run: ./build.sh
+      - name: Tag must match the manifest version
+        run: |
+          MANIFEST=$(python3 -c "import json;print(json.load(open('manifest.json'))['version'])")
+          TAG="${GITHUB_REF_NAME#v}"
+          test "$MANIFEST" = "$TAG" || {
+            echo "tag $TAG does not match manifest version $MANIFEST"; exit 1; }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true
