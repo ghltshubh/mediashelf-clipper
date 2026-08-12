@@ -23,8 +23,13 @@ Grab the zip for your browser from
 **Firefox** — `mediashelf-clipper-firefox.zip`
 
 1. Open `about:debugging#/runtime/this-firefox`.
-2. **Load Temporary Add-on**, pick `manifest.json` inside the unzipped folder. (Temporary add-ons
-   are removed when Firefox restarts; a signed build is on the list.)
+2. **Load Temporary Add-on**, pick `manifest.json` inside the unzipped folder.
+
+   Firefox removes temporary add-ons when it restarts, so this is a per-session install. That is
+   the trade for not listing on addons.mozilla.org — see
+   [why it isn't in the stores](#why-it-isnt-in-the-stores). Firefox Developer Edition, Nightly
+   and ESR can keep it permanently by setting `xpinstall.signatures.required` to `false` in
+   `about:config`; release Firefox cannot.
 
 Then click the toolbar icon. If your MediaShelf isn't at `http://127.0.0.1:8000`, hit **change** at
 the bottom of the dropdown and enter its address (e.g. `http://192.168.1.105:8010`). Saving asks
@@ -71,6 +76,16 @@ would look like a shorter list.
 If the popup says it found no titles while the list is plainly visible, that service's markup has
 changed. Each service is a handful of CSS selectors in `sites.js`, tried in order — a small edit.
 Issues and PRs welcome.
+
+## Why it isn't in the stores
+
+It installs from a zip here and stays that way. A store listing would bring automatic updates,
+and it would also mean a single-purpose extension that reads named streaming sites sitting where
+one complaint can pull it — taking the auto-updates with it. A release you download depends on
+nobody's approval.
+
+The costs are real and accepted: Developer mode on Chrome, a per-session install on Firefox, and
+the update notice in the dropdown instead of silent updates.
 
 ## Why it's separate
 
