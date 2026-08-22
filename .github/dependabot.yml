@@ -1,0 +1,11 @@
+# The extension has no runtime dependencies — it is plain JavaScript against the
+# extension APIs. Only the Actions used to build and publish releases can drift.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
