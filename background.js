@@ -141,6 +141,9 @@ ext.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       ext.action.setBadgeText({ tabId, text: "…" }).catch(() => {});
     }
     const result = await postImport(msg);
+    // A hand clip is what makes a site eligible for the schedule. Without
+    // this the eligibility rule can never be satisfied.
+    if (result.ok) await noteClipped(msg.mode === "top10" ? "streamscope" : msg.key);
     await setJob({ running: false, key: msg.key, tabId, result });
     if (tabId != null) {
       try {

@@ -145,9 +145,22 @@ function showTarget(url) {
   });
 
   if (!site) {
-    $("sub").textContent = "Open your My List page on a supported service.";
-    $("status").innerHTML =
-      "Netflix, Prime Video, Disney+, Hulu, Max, Paramount+, Peacock, Tubi, Crunchyroll, Apple TV+";
+    // Not a page this can read. The schedule below still applies, so don't
+    // phrase this as though clicking were the only way in.
+    $("send").style.display = "none";
+    $("sub").textContent = "Nothing to clip on this page.";
+    // Every supported page is one click away rather than something to go and
+    // find. Top 10 is listed last: it is the one that reads someone else's site.
+    const links = SITES.map(
+      (x) => `<a href="#" data-url="${x.url}">${x.name}</a>`).join(" · ");
+    $("status").innerHTML = `<span class="muted">Open one and send it now:</span><br>${links}`;
+    for (const a of $("status").querySelectorAll("a[data-url]")) {
+      a.onclick = (e) => {
+        e.preventDefault();
+        ext.tabs.create({ url: a.dataset.url });
+        window.close();
+      };
+    }
     return;
   }
 
