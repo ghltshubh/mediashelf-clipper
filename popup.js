@@ -42,10 +42,40 @@ async function scrapeInPage(selectors, noise) {
   return [];
 }
 
+// Also runs in the page. Heading-split pages carry several services at once,
+// so this returns {serviceKey: [titles]} rather than a flat list.
+function readSectionsInPage(services, headerSource, noise) {
+  const headerRe = new RegExp(headerSource, "i");
+  const noiseArr = noise;
+  const heads = [...document.querySelectorAll("h2,h3")].map((h) => (h.innerText || "").trim());
+  const out = {};
+  let current = null;
+  for (const text of heads) {
+    if (!text) continue;
+    const m = text.match(headerRe);
+    if (m) {
+      current = services[m[1].trim().toLowerCase()] || null;
+      if (current) out[current] = out[current] || [];
+      continue;
+    }
+    const low = text.toLowerCase();
+    if (current && !low.includes("top 10") && !noiseArr.some((n) => low.includes(n))
+        && !out[current].includes(text) && out[current].length < 10) {
+      out[current].push(text);
+    }
+  }
+  for (const k of Object.keys(out)) if (!out[k].length) delete out[k];
+  return out;
+}
+
 function render(result) {
   if (!result) return;
   const r = result.result || {};
-  if (result.ok) {
+  if (result.ok && r.services !== undefined) {
+    $("status").innerHTML =
+      `<span class="ok">✓ ${r.services} services · ${r.added} added, ${r.kept} unchanged</span>` +
+      (r.unmatchedCount ? `<br><span class="warn">${r.unmatchedCount} titles had no TMDB match</span>` : "");
+  } else if (result.ok) {
     $("status").innerHTML =
       `<span class="ok">✓ ${r.added ?? 0} added, ${r.kept ?? 0} already there` +
       (r.removed ? `, ${r.removed} removed` : "") + `</span>` +
@@ -116,7 +146,8 @@ function showTarget(url) {
   const { job } = await ext.storage.local.get("job");
   if (job?.running) {
     $("send").disabled = true;
-    $("status").textContent = `Importing ${job.count} titles… this can take a few minutes.`;
+    const unit = job.mode === "top10" ? "services" : "titles";
+    $("status").textContent = `Importing ${job.count} ${unit}… this can take a few minutes.`;
   } else if (job?.result) {
     render(job.result);
   }
@@ -128,37 +159,50 @@ function showTarget(url) {
     return;
   }
 
+  const isTop10 = site.mode === "top10";
   $("title").textContent = `MediaShelf · ${site.name}`;
-  $("sub").textContent = "Click when your list has finished loading.";
+  $("sub").textContent = isTop10
+    ? "Click once the page has finished loading."
+    : "Click when your list has finished loading.";
+  if (isTop10) $("send").textContent = "Send Top 10s";
   if (!job?.running) $("send").disabled = false;
 
   $("send").onclick = async () => {
     $("send").disabled = true;
     $("status").textContent = "Reading the page…";
-    let titles = [];
+    let payload;
     try {
       const [res] = await ext.scripting.executeScript({
         target: { tabId: tab.id },
-        func: scrapeInPage,
-        args: [site.selectors, [...NOISE]],
+        func: isTop10 ? readSectionsInPage : scrapeInPage,
+        args: isTop10
+          ? [site.services, site.headerSource, [...NOISE]]
+          : [site.selectors, [...NOISE]],
       });
-      titles = res?.result || [];
+      payload = res?.result;
     } catch (e) {
       $("status").innerHTML = `<span class="err">Couldn't read the page: ${e.message}</span>`;
       $("send").disabled = false;
       return;
     }
-    if (!titles.length) {
-      // Never send an empty list: with replace semantics that is a delete.
-      $("status").innerHTML =
-        `<span class="err">Found no titles. If the list is visible, this service's markup has changed.</span>`;
+    const found = isTop10 ? Object.keys(payload || {}).length : (payload || []).length;
+    if (!found) {
+      // Never send nothing: with replace semantics that is a delete.
+      $("status").innerHTML = isTop10
+        ? `<span class="err">Found no lists. If they are visible, the page's markup has changed.</span>`
+        : `<span class="err">Found no titles. If the list is visible, this service's markup has changed.</span>`;
       $("send").disabled = false;
       return;
     }
-    $("status").textContent = `Importing ${titles.length} titles… this can take a few minutes.`;
+    $("status").textContent = isTop10
+      ? `Importing ${found} services… this can take a few minutes.`
+      : `Importing ${found} titles… this can take a few minutes.`;
     // Fire and forget: the worker owns the request and stores the outcome, so
     // closing this popup mid-import is safe.
-    ext.runtime.sendMessage({ type: "import", key: site.key, titles, tabId: tab.id });
+    ext.runtime.sendMessage(
+      isTop10
+        ? { type: "import", mode: "top10", sections: payload, tabId: tab.id }
+        : { type: "import", key: site.key, titles: payload, tabId: tab.id });
   };
 
   // Nothing updates a load-unpacked extension on its own, and a stale build

@@ -6,6 +6,9 @@ A Chrome extension that sends your streaming **"My List"** into your own
 Open your list on the service's own site, click one button, done. Supported:
 Netflix, Prime Video, Disney+, Hulu, Max, Paramount+, Peacock, Tubi, Crunchyroll, Apple TV+.
 
+It can also clip the per-service **Top 10** lists from StreamScope's trending page into the
+"Popular right now" rail. Read [Top 10 lists](#top-10-lists) before using that part.
+
 **Not part of MediaShelf.** MediaShelf is a server; it never touches a logged-in session. This
 runs in your browser, as you, on a page you opened. That split is deliberate — see
 [Why it's separate](#why-its-separate).
@@ -53,10 +56,9 @@ reopening the popup shows the result.
 Nothing is read until you click. There is no background fetching, no schedule, and no credentials
 stored anywhere — it reads the page your browser already rendered for you, when you ask it to.
 
-**Syncing is a click, every time.** That's the design, not a limitation: the alternative is an
-extension that opens your streaming account on a timer while you're away, which is the robot
-behaviour this deliberately isn't. You're on the page anyway when you add something; the dot is
-there to remind you.
+**Syncing is a click, every time.** The only way to do it automatically would be to open your
+streaming account on a timer while you are away, which is the behaviour this exists to avoid.
+You are on the page anyway when you add something, and the dot is there to remind you.
 
 ### Each clip replaces that service's list
 
@@ -76,6 +78,24 @@ would look like a shorter list.
 If the popup says it found no titles while the list is plainly visible, that service's markup has
 changed. Each service is a handful of CSS selectors in `sites.js`, tried in order — a small edit.
 Issues and PRs welcome.
+
+## Top 10 lists
+
+On [streamscope.app/trending](https://streamscope.app/trending) the same button sends each
+service's Top 10 to MediaShelf, where they become the "Popular right now" rail. Netflix is
+deliberately skipped: MediaShelf fills that one itself from the Top 10 Netflix publishes as open
+data, and a second writer would fight it.
+
+**Their terms ask that this data is not extracted.** I asked StreamScope for permission on
+9 August 2026 and again on 21 August. Neither email was answered. Silence is not consent, and
+this ships knowing that. If they object, the StreamScope entry is removed in the next release,
+which is why it lives in `sites.js` as one line rather than in a separate tool.
+
+Everything above still applies: it reads only the page you opened, only when you click, and what
+it reads goes to your MediaShelf and nowhere else. Their rankings come from
+[FlixPatrol](https://flixpatrol.com/), and StreamScope is worth visiting directly if you find this
+useful. Nothing in MediaShelf needs this rail; without it, Netflix still fills itself and
+per-service views rank by TMDB popularity.
 
 ## Why it isn't in the stores
 

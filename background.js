@@ -75,30 +75,58 @@ ext.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type !== "import") return;
   (async () => {
     const tabId = msg.tabId;
-    await setJob({ running: true, count: msg.titles.length, key: msg.key, tabId });
+    const count = msg.mode === "top10"
+      ? Object.keys(msg.sections || {}).length
+      : (msg.titles || []).length;
+    await setJob({ running: true, count, key: msg.key, mode: msg.mode, tabId });
     if (tabId != null) {
       ext.action.setBadgeText({ tabId, text: "…" }).catch(() => {});
     }
     let result;
     try {
-      if (!msg.titles?.length) throw new Error("nothing to send");
-      const resp = await fetch(await importUrl(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          source: msg.key,
-          list_type: "watchlist",
-          // Full-state sync: this IS your list on that service now. Titles saved
-          // inside MediaShelf use a separate type and are never touched.
-          replace: true,
-          items: msg.titles.map((t) => ({ title: t })),
-        }),
-      });
-      if (!resp.ok) {
-        const detail = await resp.text().catch(() => "");
-        throw new Error(`MediaShelf said HTTP ${resp.status}${detail ? `: ${detail.slice(0, 120)}` : ""}`);
+      const url = await importUrl();
+      // Two payload shapes: one service's watchlist, or several services'
+      // Top 10s from one page. Both are full-state syncs of that list.
+      const posts = msg.mode === "top10"
+        ? Object.entries(msg.sections || {}).map(([key, titles]) => ({
+            source: key,
+            list_type: "top10",
+            replace: true,
+            items: titles.map((t, i) => ({ title: t, rank: i + 1 })),
+          }))
+        : [{
+            source: msg.key,
+            list_type: "watchlist",
+            // This IS your list on that service now. Titles saved inside
+            // MediaShelf use a separate type and are never touched.
+            replace: true,
+            items: (msg.titles || []).map((t) => ({ title: t })),
+          }];
+      if (!posts.length || !posts.every((b) => b.items.length)) {
+        throw new Error("nothing to send");
       }
-      result = { ok: true, result: await resp.json() };
+      let services = 0, added = 0, kept = 0, removed = 0, unmatched = [];
+      for (const body of posts) {
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!resp.ok) {
+          const detail = await resp.text().catch(() => "");
+          throw new Error(
+            `MediaShelf said HTTP ${resp.status}${detail ? `: ${detail.slice(0, 120)}` : ""}`);
+        }
+        const data = await resp.json();
+        services += 1;
+        added += data.added || 0;
+        kept += data.kept || 0;
+        removed += data.removed || 0;
+        unmatched = unmatched.concat(data.unmatched || []);
+      }
+      result = msg.mode === "top10"
+        ? { ok: true, result: { services, added, kept, unmatchedCount: unmatched.length } }
+        : { ok: true, result: { added, kept, removed, unmatched } };
     } catch (e) {
       const m = String(e?.message || e);
       result = {

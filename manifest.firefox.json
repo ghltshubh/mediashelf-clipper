@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "MediaShelf clipper",
-  "version": "1.4.0",
-  "description": "On your streaming service's own My List page, click the toolbar icon to send those titles to your MediaShelf.",
+  "version": "1.5.0",
+  "description": "Send your streaming My List, and StreamScope's per-service Top 10s, to your own MediaShelf. Reads only the page you open, when you click.",
   "permissions": [
     "storage",
     "activeTab",

@@ -1,12 +1,16 @@
 // Which page are we on, and how are titles marked up there?
 //
-// `key` must match MediaShelf's seeded Service.key so imported titles get
-// attributed to the right service. `selectors` are tried in order and the
-// first one that yields anything wins — services redesign, and a stale
-// selector should fall through rather than break the clip.
+// Two kinds of page:
 //
-// Ported from the Playwright exporter this extension replaces: the extraction
-// was always plain DOM reading, so it works unchanged in a content script.
+//   mode "watchlist" (the default) — one page belongs to one service, and
+//   `selectors` are tried in order until one yields titles. `key` must match
+//   MediaShelf's seeded Service.key so the import is attributed correctly.
+//
+//   mode "top10" — one page carries several services at once, split by
+//   headings, so the entry brings a `services` lookup instead of a `key`.
+//
+// Selectors drift when a service redesigns, which is why several are listed
+// and a stale one falls through rather than breaking the clip.
 
 const SITES = [
   {
@@ -119,11 +123,41 @@ const SITES = [
   },
 ];
 
+// StreamScope publishes each service's Top 10 on one page, under a heading
+// per service. Netflix is deliberately absent: MediaShelf fills that rail
+// itself from the Top 10 Netflix publishes as open data, and a second writer
+// would fight it.
+//
+// Their terms ask that this data is not extracted. Permission was requested on
+// 9 August 2026 and again on 21 August, and neither email was answered. See
+// the README before using this one.
+SITES.push({
+  key: "streamscope",
+  name: "StreamScope Top 10",
+  mode: "top10",
+  test: (l) => l.hostname.endsWith("streamscope.app") && l.pathname.startsWith("/trending"),
+  headerSource: String.raw`^(.*?)\s+top\s*10\b`,
+  services: {
+    "prime video": "prime_video",
+    "apple tv": "apple_tv_plus",
+    "disney+": "disney_plus",
+    "disney plus": "disney_plus",
+    hulu: "hulu",
+    max: "max",
+    "hbo max": "max",
+    "paramount+": "paramount_plus",
+    "paramount plus": "paramount_plus",
+    peacock: "peacock",
+  },
+});
+
 // Chrome, button labels and store badges all end up in aria-label/alt text.
 const NOISE = new Set([
   "play", "more info", "add to my list", "remove", "logo", "image", "thumbnail",
   "poster", "loading", "netflix", "prime video", "hulu", "app store - apple",
   "google play", "app store - microsoft", "app store", "download on the app store",
+  "streamscope", "get this daily", "subscribe", "sign up", "charts today",
+  "blog", "privacy", "terms",
 ]);
 
 function siteForLocation(l) {
