@@ -1,18 +1,30 @@
 {
   "manifest_version": 3,
   "name": "MediaShelf clipper",
-  "version": "1.5.0",
-  "description": "Send your streaming My List, and StreamScope's per-service Top 10s, to your own MediaShelf. Reads only the page you open, when you click.",
+  "version": "2.0.0",
+  "description": "Send your streaming My List and per-service Top 10s to your own MediaShelf, by clicking or on a schedule you turn on.",
   "permissions": [
     "storage",
     "activeTab",
     "scripting",
-    "tabs"
+    "tabs",
+    "alarms"
   ],
   "host_permissions": [
     "http://127.0.0.1/*",
     "http://localhost/*",
-    "https://api.github.com/*"
+    "https://api.github.com/*",
+    "https://www.netflix.com/*",
+    "https://www.primevideo.com/*",
+    "https://www.disneyplus.com/*",
+    "https://www.hulu.com/*",
+    "https://play.max.com/*",
+    "https://www.paramountplus.com/*",
+    "https://www.peacocktv.com/*",
+    "https://tubitv.com/*",
+    "https://www.crunchyroll.com/*",
+    "https://tv.apple.com/*",
+    "https://streamscope.app/*"
   ],
   "optional_host_permissions": [
     "http://*/*",

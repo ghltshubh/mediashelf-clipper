@@ -11,11 +11,15 @@
 //
 // Selectors drift when a service redesigns, which is why several are listed
 // and a stale one falls through rather than breaking the clip.
+//
+// `url` is the page a scheduled run opens in a background tab. Clicking never
+// needed it, because you were already standing on the page.
 
 const SITES = [
   {
     key: "netflix",
     name: "Netflix",
+    url: "https://www.netflix.com/browse/my-list",
     test: (l) => l.hostname.endsWith("netflix.com") && l.pathname.includes("/browse/my-list"),
     selectors: [
       '[data-uia="collections-title"] a[aria-label]',
@@ -27,6 +31,7 @@ const SITES = [
   {
     key: "prime_video",
     name: "Prime Video",
+    url: "https://www.primevideo.com/region/na/watchlist",
     test: (l) => l.hostname.endsWith("primevideo.com") && l.pathname.includes("watchlist"),
     selectors: [
       '[data-testid="card"] a[aria-label]',
@@ -38,6 +43,7 @@ const SITES = [
   {
     key: "disney_plus",
     name: "Disney+",
+    url: "https://www.disneyplus.com/watchlist",
     test: (l) => l.hostname.endsWith("disneyplus.com") && l.pathname.includes("watchlist"),
     selectors: [
       'a[data-testid="set-item"] img[alt]',
@@ -49,6 +55,7 @@ const SITES = [
   {
     key: "hulu",
     name: "Hulu",
+    url: "https://www.hulu.com/my-stuff",
     test: (l) => l.hostname.endsWith("hulu.com") && l.pathname.includes("/my-stuff"),
     selectors: [
       "[data-automationid] a[aria-label]",
@@ -60,6 +67,7 @@ const SITES = [
   {
     key: "max",
     name: "Max",
+    url: "https://play.max.com/mylist",
     test: (l) => l.hostname.endsWith("max.com") && l.pathname.includes("/mylist"),
     selectors: [
       'a[aria-label][href*="/show/"]',
@@ -71,6 +79,7 @@ const SITES = [
   {
     key: "paramount_plus",
     name: "Paramount+",
+    url: "https://www.paramountplus.com/account/watchlist/",
     test: (l) => l.hostname.endsWith("paramountplus.com") && l.pathname.includes("/watchlist"),
     selectors: [
       ".watch-list a[aria-label]",
@@ -82,6 +91,7 @@ const SITES = [
   {
     key: "peacock",
     name: "Peacock",
+    url: "https://www.peacocktv.com/watch/my-stuff",
     test: (l) => l.hostname.endsWith("peacocktv.com") && l.pathname.includes("/my-stuff"),
     selectors: [
       'a[aria-label][href*="/watch/asset/"]',
@@ -92,6 +102,7 @@ const SITES = [
   {
     key: "tubi",
     name: "Tubi",
+    url: "https://tubitv.com/my-stuff",
     test: (l) => l.hostname.endsWith("tubitv.com") && l.pathname.includes("/my-stuff"),
     selectors: [
       '[class*="tile"] img[alt]:not([alt=""])',
@@ -101,6 +112,7 @@ const SITES = [
   {
     key: "crunchyroll",
     name: "Crunchyroll",
+    url: "https://www.crunchyroll.com/watchlist",
     test: (l) => l.hostname.endsWith("crunchyroll.com") && l.pathname.includes("/watchlist"),
     selectors: [
       'a[href*="/series/"] h4',
@@ -112,6 +124,7 @@ const SITES = [
   {
     key: "apple_tv_plus",
     name: "Apple TV+",
+    url: "https://tv.apple.com/us/room/up-next",
     // "Up Next" is a shelf on the home room rather than a real watchlist page,
     // so this one is best-effort.
     test: (l) => l.hostname === "tv.apple.com" && l.pathname.includes("/room/up-next"),
@@ -135,6 +148,7 @@ SITES.push({
   key: "streamscope",
   name: "StreamScope Top 10",
   mode: "top10",
+  url: "https://streamscope.app/trending",
   test: (l) => l.hostname.endsWith("streamscope.app") && l.pathname.startsWith("/trending"),
   headerSource: String.raw`^(.*?)\s+top\s*10\b`,
   services: {
@@ -162,4 +176,10 @@ const NOISE = new Set([
 
 function siteForLocation(l) {
   return SITES.find((s) => s.test(l)) || null;
+}
+
+// Origins a scheduled run needs to reach, derived from the same list so the
+// manifest and the code cannot drift apart.
+function siteOrigins() {
+  return SITES.map((s) => new URL(s.url).origin + "/*");
 }

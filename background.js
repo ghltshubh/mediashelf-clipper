@@ -12,7 +12,7 @@
 // callback-style, so awaiting it there returns undefined. Chrome has no
 // `browser`, and its `chrome` is promise-based in MV3. One name for both.
 const ext = globalThis.browser?.runtime ? globalThis.browser : globalThis.chrome;
-if (typeof importScripts === "function") importScripts("sites.js");
+if (typeof importScripts === "function") importScripts("sites.js", "readers.js");
 
 const DEFAULT_URL = "http://127.0.0.1:8000";
 const RELEASES_API = "https://api.github.com/repos/ghltshubh/mediashelf-clipper/releases/latest";
@@ -71,6 +71,64 @@ async function setJob(job) {
   await ext.storage.local.set({ job });
 }
 
+// Send a read to MediaShelf. Shared by the click path and scheduled runs, so
+// there is one definition of what an import is.
+async function postImport(msg) {
+  try {
+    const url = await importUrl();
+    // Two payload shapes: one service's watchlist, or several services'
+    // Top 10s from one page. Both are full-state syncs of that list.
+    const posts = msg.mode === "top10"
+      ? Object.entries(msg.sections || {}).map(([key, titles]) => ({
+          source: key,
+          list_type: "top10",
+          replace: true,
+          items: titles.map((t, i) => ({ title: t, rank: i + 1 })),
+        }))
+      : [{
+          source: msg.key,
+          list_type: "watchlist",
+          // This IS your list on that service now. Titles saved inside
+          // MediaShelf use a separate type and are never touched.
+          replace: true,
+          items: (msg.titles || []).map((t) => ({ title: t })),
+        }];
+    if (!posts.length || !posts.every((b) => b.items.length)) {
+      throw new Error("nothing to send");
+    }
+    let services = 0, added = 0, kept = 0, removed = 0, unmatched = [];
+    for (const body of posts) {
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok) {
+        const detail = await resp.text().catch(() => "");
+        throw new Error(
+          `MediaShelf said HTTP ${resp.status}${detail ? `: ${detail.slice(0, 120)}` : ""}`);
+      }
+      const data = await resp.json();
+      services += 1;
+      added += data.added || 0;
+      kept += data.kept || 0;
+      removed += data.removed || 0;
+      unmatched = unmatched.concat(data.unmatched || []);
+    }
+    return msg.mode === "top10"
+      ? { ok: true, result: { services, added, kept, unmatchedCount: unmatched.length } }
+      : { ok: true, result: { added, kept, removed, unmatched } };
+  } catch (e) {
+    const m = String(e?.message || e);
+    return {
+      ok: false,
+      error: m.includes("Failed to fetch")
+        ? "Couldn't reach MediaShelf — check the URL in this extension's options."
+        : m,
+    };
+  }
+}
+
 ext.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type !== "import") return;
   (async () => {
@@ -82,60 +140,7 @@ ext.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (tabId != null) {
       ext.action.setBadgeText({ tabId, text: "…" }).catch(() => {});
     }
-    let result;
-    try {
-      const url = await importUrl();
-      // Two payload shapes: one service's watchlist, or several services'
-      // Top 10s from one page. Both are full-state syncs of that list.
-      const posts = msg.mode === "top10"
-        ? Object.entries(msg.sections || {}).map(([key, titles]) => ({
-            source: key,
-            list_type: "top10",
-            replace: true,
-            items: titles.map((t, i) => ({ title: t, rank: i + 1 })),
-          }))
-        : [{
-            source: msg.key,
-            list_type: "watchlist",
-            // This IS your list on that service now. Titles saved inside
-            // MediaShelf use a separate type and are never touched.
-            replace: true,
-            items: (msg.titles || []).map((t) => ({ title: t })),
-          }];
-      if (!posts.length || !posts.every((b) => b.items.length)) {
-        throw new Error("nothing to send");
-      }
-      let services = 0, added = 0, kept = 0, removed = 0, unmatched = [];
-      for (const body of posts) {
-        const resp = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!resp.ok) {
-          const detail = await resp.text().catch(() => "");
-          throw new Error(
-            `MediaShelf said HTTP ${resp.status}${detail ? `: ${detail.slice(0, 120)}` : ""}`);
-        }
-        const data = await resp.json();
-        services += 1;
-        added += data.added || 0;
-        kept += data.kept || 0;
-        removed += data.removed || 0;
-        unmatched = unmatched.concat(data.unmatched || []);
-      }
-      result = msg.mode === "top10"
-        ? { ok: true, result: { services, added, kept, unmatchedCount: unmatched.length } }
-        : { ok: true, result: { added, kept, removed, unmatched } };
-    } catch (e) {
-      const m = String(e?.message || e);
-      result = {
-        ok: false,
-        error: m.includes("Failed to fetch")
-          ? "Couldn't reach MediaShelf — check the URL in this extension's options."
-          : m,
-      };
-    }
+    const result = await postImport(msg);
     await setJob({ running: false, key: msg.key, tabId, result });
     if (tabId != null) {
       try {
@@ -198,5 +203,158 @@ ext.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   checkForUpdate().then((r) => {
     sendResponse(r && r.latest && newer(r.latest, r.current) ? r : null);
   });
+  return true;
+});
+
+
+// ---------- scheduled runs ----------
+//
+// Off unless you turn it on. When on, an alarm opens each eligible site in a
+// background tab, reads it the same way clicking does, and closes the tab.
+// That is unattended access to accounts you are signed into; the README says
+// so plainly rather than pretending otherwise.
+//
+// Eligible means: you have clipped that site by hand at least once. A schedule
+// should never start opening ten sites for someone who uses one.
+
+const ALARM = "scheduled-clip";
+const AUTO_DEFAULTS = { enabled: false, intervalHours: 24 };
+
+async function autoSettings() {
+  const { auto } = await ext.storage.sync.get("auto");
+  return { ...AUTO_DEFAULTS, ...(auto || {}) };
+}
+
+async function noteClipped(key) {
+  if (!key) return;
+  const { clipped } = await ext.storage.local.get("clipped");
+  await ext.storage.local.set({ clipped: { ...(clipped || {}), [key]: Date.now() } });
+}
+
+async function eligibleSites() {
+  const { clipped } = await ext.storage.local.get("clipped");
+  const seen = clipped || {};
+  return SITES.filter((s) => seen[s.key]);
+}
+
+async function reschedule() {
+  const { enabled, intervalHours } = await autoSettings();
+  await ext.alarms.clear(ALARM);
+  if (enabled) {
+    await ext.alarms.create(ALARM, {
+      periodInMinutes: Math.max(60, intervalHours * 60),
+      delayInMinutes: 5,
+    });
+  }
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function waitForLoad(tabId, timeoutMs = 45000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    try {
+      const t = await ext.tabs.get(tabId);
+      if (t.status === "complete") return true;
+    } catch {
+      return false; // tab closed under us
+    }
+    await sleep(500);
+  }
+  return false;
+}
+
+async function clipOneSite(site) {
+  let tab;
+  try {
+    tab = await ext.tabs.create({ url: site.url, active: false });
+  } catch {
+    return null;
+  }
+  try {
+    if (!(await waitForLoad(tab.id))) return null;
+    await sleep(5000); // these are SPAs; the list arrives after load
+    const [res] = await ext.scripting.executeScript({
+      target: { tabId: tab.id },
+      ...readerFor(site, [...NOISE]),
+    });
+    const payload = res?.result;
+    // Signed out, redirected to a login page, or markup changed: all look the
+    // same from here, and all mean send nothing.
+    if (site.mode === "top10") {
+      return Object.keys(payload || {}).length ? { mode: "top10", sections: payload } : null;
+    }
+    return (payload || []).length ? { key: site.key, titles: payload } : null;
+  } catch {
+    return null;
+  } finally {
+    try {
+      await ext.tabs.remove(tab.id);
+    } catch { /* already gone */ }
+  }
+}
+
+async function runScheduled({ force = false } = {}) {
+  const { enabled } = await autoSettings();
+  if (!enabled && !force) return null;
+  const sites = await eligibleSites();
+  if (!sites.length) return { at: Date.now(), ok: 0, skipped: 0 };
+
+  const summary = { at: Date.now(), ok: 0, skipped: 0 };
+  for (const site of sites) {
+    const payload = await clipOneSite(site);
+    if (!payload) {
+      summary.skipped += 1;
+      continue;
+    }
+    const outcome = await postImport(payload);
+    if (outcome.ok) {
+      summary.ok += 1;
+      await noteClipped(site.key);
+    } else {
+      summary.skipped += 1;
+      summary.error = outcome.error;
+    }
+    await sleep(2000); // don't hammer one site after another
+  }
+  await ext.storage.local.set({ lastScheduled: summary });
+  return summary;
+}
+
+ext.alarms.onAlarm.addListener((a) => {
+  if (a.name === ALARM) runScheduled();
+});
+ext.runtime.onInstalled.addListener(reschedule);
+ext.runtime.onStartup.addListener(reschedule);
+
+ext.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type !== "setAuto") return;
+  (async () => {
+    const next = { ...(await autoSettings()), ...msg.auto };
+    await ext.storage.sync.set({ auto: next });
+    await reschedule();
+    sendResponse(next);
+  })();
+  return true;
+});
+
+ext.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type !== "getAuto") return;
+  (async () => {
+    const auto = await autoSettings();
+    const eligible = (await eligibleSites()).map((s) => s.name);
+    const { lastScheduled } = await ext.storage.local.get("lastScheduled");
+    sendResponse({ auto, eligible, lastScheduled: lastScheduled || null });
+  })();
+  return true;
+});
+
+// "Run now" from the popup: same code path as the alarm, so testing the
+// button tests the schedule.
+ext.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type !== "runNow") return;
+  runScheduled({ force: true }).then((summary) => sendResponse(summary || null));
   return true;
 });

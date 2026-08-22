@@ -13,61 +13,6 @@ const ext = globalThis.browser?.runtime ? globalThis.browser : globalThis.chrome
 const $ = (id) => document.getElementById(id);
 const DEFAULT_URL = "http://127.0.0.1:8000";
 
-// Runs in the page, not here: executeScript can't close over popup scope, so
-// selectors and noise words come in as arguments.
-async function scrapeInPage(selectors, noise) {
-  const noiseSet = new Set(noise);
-  const start = window.scrollY;
-  let lastHeight = -1;
-  for (let i = 0; i < 25 && document.body.scrollHeight !== lastHeight; i++) {
-    lastHeight = document.body.scrollHeight;
-    window.scrollBy(0, 1600);
-    await new Promise((r) => setTimeout(r, 400));
-  }
-  window.scrollTo(0, start);
-  await new Promise((r) => setTimeout(r, 300));
-
-  for (const selector of selectors) {
-    const titles = [];
-    for (const el of document.querySelectorAll(selector)) {
-      const text = (
-        el.getAttribute("aria-label") || el.getAttribute("alt") || el.innerText || ""
-      ).trim();
-      if (text && !noiseSet.has(text.toLowerCase()) && !titles.includes(text)) {
-        titles.push(text);
-      }
-    }
-    if (titles.length) return titles;
-  }
-  return [];
-}
-
-// Also runs in the page. Heading-split pages carry several services at once,
-// so this returns {serviceKey: [titles]} rather than a flat list.
-function readSectionsInPage(services, headerSource, noise) {
-  const headerRe = new RegExp(headerSource, "i");
-  const noiseArr = noise;
-  const heads = [...document.querySelectorAll("h2,h3")].map((h) => (h.innerText || "").trim());
-  const out = {};
-  let current = null;
-  for (const text of heads) {
-    if (!text) continue;
-    const m = text.match(headerRe);
-    if (m) {
-      current = services[m[1].trim().toLowerCase()] || null;
-      if (current) out[current] = out[current] || [];
-      continue;
-    }
-    const low = text.toLowerCase();
-    if (current && !low.includes("top 10") && !noiseArr.some((n) => low.includes(n))
-        && !out[current].includes(text) && out[current].length < 10) {
-      out[current].push(text);
-    }
-  }
-  for (const k of Object.keys(out)) if (!out[k].length) delete out[k];
-  return out;
-}
-
 function render(result) {
   if (!result) return;
   const r = result.result || {};
@@ -152,6 +97,53 @@ function showTarget(url) {
     render(job.result);
   }
 
+
+  // ---- scheduled runs ----
+  // Turning this on is a real decision: it opens these sites in background
+  // tabs while you are not there. The note under the switch says so.
+  const autoNote = (auto, eligible, last) => {
+    if (!eligible.length) {
+      return "Nothing to schedule yet. Clip a site once by hand and it becomes eligible.";
+    }
+    const when = last?.at ? new Date(last.at).toLocaleString() : null;
+    const ran = when ? `Last run ${when}: ${last.ok} updated, ${last.skipped} skipped.` : "";
+    return auto.enabled
+      ? `Opens ${eligible.join(", ")} in background tabs, signed in as you. ${ran}`
+      : `Would open ${eligible.join(", ")} in background tabs, signed in as you.`;
+  };
+
+  ext.runtime.sendMessage({ type: "getAuto" }, (info) => {
+    if (!info) return;
+    const { auto, eligible, lastScheduled } = info;
+    $("autoon").checked = auto.enabled;
+    $("autoevery").value = String(auto.intervalHours);
+    $("autodetail").classList.toggle("open", auto.enabled);
+    $("autonote").textContent = autoNote(auto, eligible, lastScheduled);
+    $("runnow").disabled = !eligible.length;
+
+    const push = (patch) => ext.runtime.sendMessage(
+      { type: "setAuto", auto: patch },
+      (next) => {
+        if (!next) return;
+        $("autodetail").classList.toggle("open", next.enabled);
+        $("autonote").textContent = autoNote(next, eligible, lastScheduled);
+      });
+
+    $("autoon").onchange = () => push({ enabled: $("autoon").checked });
+    $("autoevery").onchange = () => push({ intervalHours: Number($("autoevery").value) });
+    $("runnow").onclick = () => {
+      $("runnow").disabled = true;
+      $("autonote").textContent = "Running now… tabs will open and close on their own.";
+      ext.runtime.sendMessage({ type: "runNow" }, (res) => {
+        $("runnow").disabled = false;
+        $("autonote").textContent = res
+          ? `Finished: ${res.ok} updated, ${res.skipped} skipped.` +
+            (res.error ? ` Last error: ${res.error}` : "")
+          : "Finished.";
+      });
+    };
+  });
+
   if (!site) {
     $("sub").textContent = "Open your My List page on a supported service.";
     $("status").innerHTML =
@@ -174,10 +166,7 @@ function showTarget(url) {
     try {
       const [res] = await ext.scripting.executeScript({
         target: { tabId: tab.id },
-        func: isTop10 ? readSectionsInPage : scrapeInPage,
-        args: isTop10
-          ? [site.services, site.headerSource, [...NOISE]]
-          : [site.selectors, [...NOISE]],
+        ...readerFor(site, [...NOISE]),
       });
       payload = res?.result;
     } catch (e) {
@@ -218,6 +207,7 @@ function showTarget(url) {
     };
     $("updatesep").style.display = "";
   });
+
 
   ext.storage.onChanged.addListener((changes, area) => {
     if (area !== "local" || !changes.job) return;

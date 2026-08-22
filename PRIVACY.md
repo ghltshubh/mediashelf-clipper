@@ -1,16 +1,20 @@
 # Privacy policy — MediaShelf clipper
 
-_Last updated: 10 August 2026_
+_Last updated: 22 August 2026_
 
 Short version: this extension has no server, no analytics, no account, and no telemetry. Nothing
-about you is collected, stored remotely, or sold. It sends the titles you ask it to send to a
-server **you** run and nowhere else.
+about you is collected, stored remotely, or sold. It sends titles to a server **you** run and
+nowhere else.
+
+If you switch on the optional schedule, it also opens those sites in background tabs on a timer,
+signed in as you, and reads them the same way. That is described in the README under Scheduled
+updates. It is off unless you turn it on, and what it reads still goes only to your MediaShelf.
 
 ## What it reads
 
 When you click the extension's toolbar icon on a supported "My List" page, it reads the visible
 titles from that page — the page your browser has already rendered for you. It reads nothing on
-any other site, and nothing at all until you click.
+any other site. Without the optional schedule it reads nothing at all until you click.
 
 It never reads, stores, or transmits your credentials, cookies, or session tokens for any
 streaming service. It does not log in, and it cannot: it only sees the finished page, the same as

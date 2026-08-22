@@ -53,12 +53,9 @@ A long list takes a few minutes to import, because MediaShelf looks up every new
 close the popup and keep browsing; the icon shows `…` while it works and `✓` when it's done, and
 reopening the popup shows the result.
 
-Nothing is read until you click. There is no background fetching, no schedule, and no credentials
-stored anywhere — it reads the page your browser already rendered for you, when you ask it to.
-
-**Syncing is a click, every time.** The only way to do it automatically would be to open your
-streaming account on a timer while you are away, which is the behaviour this exists to avoid.
-You are on the page anyway when you add something, and the dot is there to remind you.
+No credentials are stored anywhere: it reads the page your browser already rendered for you.
+Out of the box nothing is read until you click. There is also an optional schedule, which does
+read pages without you — see [Scheduled updates](#scheduled-updates) before turning it on.
 
 ### Each clip replaces that service's list
 
@@ -78,6 +75,33 @@ would look like a shorter list.
 If the popup says it found no titles while the list is plainly visible, that service's markup has
 changed. Each service is a handful of CSS selectors in `sites.js`, tried in order — a small edit.
 Issues and PRs welcome.
+
+## Scheduled updates
+
+**Off by default. Read this before switching it on.**
+
+With the switch on, the extension opens each eligible site in a **background tab on a timer**,
+reads it exactly as clicking would, closes the tab, and sends the result to MediaShelf. It does
+this **while you are not there, signed in as you**.
+
+That is automated access to accounts you are logged into, and it is what most streaming services'
+terms of use prohibit. Clicking the button yourself is a person looking at their own page; a timer
+is not. If any consequence follows, it lands on your streaming account, not on this project.
+Nobody is opted in by accident: the switch starts off, and the note under it names the exact sites
+a run would open.
+
+How it behaves:
+
+- **Only sites you have already clipped by hand at least once** are eligible. A schedule never
+  starts opening ten sites for someone who uses one.
+- Intervals are 12 hours, daily or weekly. Daily is plenty; these lists change slowly.
+- Tabs open in the background and close themselves. Nothing is left behind.
+- If a site has signed you out, the read finds nothing and **nothing is sent** — a logged-out
+  redirect, a redesign and an empty list are indistinguishable from here, and all three mean stop.
+- **Run now** does exactly what the timer does, so testing the button tests the schedule.
+
+If you would rather not have any of this, leave the switch alone. Clicking still works and remains
+the default.
 
 ## Top 10 lists
 
@@ -131,7 +155,9 @@ Settings → Plugins, which takes the official data export most services provide
 
 | Permission | Why |
 |---|---|
-| `activeTab` + `scripting` | Read the list off the page — granted for one tab, only when you click the icon. |
+| `activeTab` + `scripting` | Read the list off the page you are on, when you click the icon. |
+| Host access to the supported sites | Required for [scheduled updates](#scheduled-updates), which read tabs you did not just click on. Chrome lists every site at install. Without a schedule enabled, nothing uses this. |
+| `alarms` | Fire the schedule. Unused while it is off. |
 | `tabs` | See the URL of tabs you switch to, so the icon can show its "clip available" dot. Chrome words this as *"read your browsing history"*; the extension never stores or sends any of it. Remove `"tabs"` from `manifest.json` if you'd rather not grant it — everything still works, minus the dot. |
 | `storage` | Remember your MediaShelf address and the last import's outcome. |
 | `api.github.com` | Read the latest release number, once a day, to tell you an update exists. Nothing is sent. |
