@@ -13,7 +13,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Syntax-check every script
         run: for f in background.js popup.js sites.js; do node --check "$f"; done
       - name: Manifests must be valid JSON, same version, right background type
@@ -53,7 +53,7 @@ jobs:
     permissions:
       contents: write # create the release and upload the zips
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Package both builds
         run: ./build.sh
       - name: Tag must match the manifest version
@@ -62,7 +62,7 @@ jobs:
           TAG="${GITHUB_REF_NAME#v}"
           test "$MANIFEST" = "$TAG" || {
             echo "tag $TAG does not match manifest version $MANIFEST"; exit 1; }
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: dist/*.zip
           generate_release_notes: true
